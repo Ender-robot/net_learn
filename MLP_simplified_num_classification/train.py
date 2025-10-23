@@ -15,15 +15,21 @@ def main():
     # 初始化一些参数
     parser = argparse.ArgumentParser(description = '训练参数')
 
-    parser.add_argument('--device', type = int, help = '指定设备')
+    parser.add_argument('--device', type = int, help = '指定设备', default = "cpu")
     parser.add_argument('--data_dir', type = str, help = '数据集根目录')
+    parser.add_argument('--pt_dir', type = str, help = '模型权重目录')
     parser.add_argument('--epoch', type = int, help = '训练轮数')
     parser.add_argument('--batch_size', type = int, help = '批大小')
     parser.add_argument('--lr', type = float, help = '学习率', default = 0.001)
 
     args = parser.parse_args() # 解析命令行参数
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu", args.device)
+    if torch.cuda.is_available():
+        device = torch.device("cuda", args.device)
+        print(f"Used CUDA: {args.device}")
+    else:
+        device = torch.device("cpu")
+        print(f"Used CPU")
 
     # 实例化模型
     model = MLPSimplifiedNumClassification().to(device) # 实例化模型
@@ -41,7 +47,8 @@ def main():
     # 训练数据集路径
     train_imgs_dir = os.path.join(args.data_dir, r"images/train")
     train_labels_dir = os.path.join(args.data_dir, r"labels/train")
-    train_dataset = MyDataset(train_imgs_dir, train_labels_dir) # 初始化自定义的数据集类
+    dataset_config_file = os.path.join(args.data_dir, r"config.json")
+    train_dataset = MyDataset(train_imgs_dir, train_labels_dir, dataset_config_file) # 初始化自定义的数据集类
     # 数据集加载器
     train_loader = DataLoader(dataset = train_dataset,
                               batch_size = args.batch_size,
@@ -52,6 +59,10 @@ def main():
     for epoch in range(num_epoch):
         runtime_loss = 0.0 # 初始化运行时平均损失用于分析
         for i, (img, label) in enumerate(train_loader):
+            # 将数据转移至指定设备
+            img = img.to(device)
+            label = label.to(device)
+
             # 前向传播
             outputs = model(img)
 
@@ -69,4 +80,10 @@ def main():
                 print(f"Epoch:{epoch + 1} / {num_epoch}  Step:{i + 1} / {len(train_loader)}  Loss:{(runtime_loss/10.0):.4f}")
                 runtime_loss = 0.0
 
+    pt_file = os.path.join(args.pt_dir, "weight.pt")
+    torch.save(model.state_dict(), pt_file)
+    print(f"Weights saved to {pt_file}")
     print("Finished Training !")
+
+if __name__ == "__main__":
+    main()
