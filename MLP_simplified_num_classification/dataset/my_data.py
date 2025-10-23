@@ -1,5 +1,6 @@
 #-- By Ender_F_L --#
 
+import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.io import read_image
 
@@ -8,15 +9,20 @@ import json
 
 # 构建自己的数据集格式
 class MyDataset(Dataset):
-    def __init__(self, imgs_dir, labels_dir):
+    def __init__(self, imgs_dir, labels_dir, config_file):
         self.imgs_dir = imgs_dir
         self.labels_dir = labels_dir
+        self.config_file = config_file
 
         # 检查和统计数据集数量
         self.img_files = os.listdir(self.imgs_dir)
         self.label_files = os.listdir(self.labels_dir)
         nums_imgs = len(self.img_files)
         nums_labels = len(self.label_files)
+
+        # 读取标签编码表
+        with open(config_file, 'r', encoding='utf-8') as file:
+            self.config = json.load(file)
 
         if nums_imgs != nums_labels:
             self.data_nums = min(nums_imgs, nums_labels)
@@ -33,7 +39,8 @@ class MyDataset(Dataset):
         label_path = os.path.join(self.labels_dir, self.label_files[idx]) # 加载标签路径
 
         img = self.image2tensor(img_path) # 张量
-        label = self.read_from_json(label_path) # 字符
+        label_ = self.read_from_json(label_path) # 字符
+        label = self.str2tensor(label_, self.config) # 张量
 
         return img, label
 
@@ -50,3 +57,14 @@ class MyDataset(Dataset):
             data = json.load(file)
 
         return data[key]
+    
+    # 将python的字符转换成tensor并归一化
+    def str2tensor(self, string : str, config : dict):
+        # 获取字符到整型的映射
+        label_map = config["label_encode"]
+        # 映射
+        label_code = label_map[string]
+        # 转成张量
+        label_tensor = torch.tensor(label_code, dtype=torch.long)
+
+        return label_tensor
