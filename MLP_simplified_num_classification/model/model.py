@@ -19,7 +19,7 @@ class MLPSimplifiedNumClassification(nn.Module):
 
     # 定义一次前向传播
     def forward(self, x:torch.Tensor):
-        x = x.view(-1, 3 * 100 * 100) # 将输入的100 * 100的图像扁平化为一张一维数组
+        x = x.reshape(-1, 3 * 100 * 100) # 将输入的100 * 100的图像扁平化为一张一维数组
         x = torch.relu(self.fc1(x)) # 输入第一层神经网络并使用ReLu激活
         x = torch.relu(self.fc2(x)) # 输入第二层神经网络并使用ReLu激活
         x = self.fc3(x) # 第三层不需要激活因为损失函数期望一个原始的输出，自己内部会处理
