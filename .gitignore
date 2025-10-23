@@ -1,3 +1,5 @@
 .vscode
 data
 raw_dataset
+MLP_simplified_num_classification/model/__pycache__
+MLP_simplified_num_classification/model/weight.pt
