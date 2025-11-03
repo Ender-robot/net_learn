@@ -9,8 +9,8 @@ import os
 import argparse
 import matplotlib.pyplot as plt
 
-from dataset.SimPointTrackNetDataset import SimPointTrackNetDataset
-from model.SimPointTrackNet import SimPointTrackNet
+from dataset.SimPointTrackUNetDataset import SimPointTrackNetDataset
+from model.SimPointTrackUNet import SimPointTrackUNet
 
 def get_args():
     # 初始化一些参数
@@ -37,7 +37,7 @@ def train(args):
         print(f"Used CPU")
 
     # 实例化模型
-    model = SimPointTrackNet().to(device) # 并模型转移至指定设备
+    model = SimPointTrackUNet(15).to(device) # 并模型转移至指定设备
 
     # 构建损失函数
     criterion = nn.CrossEntropyLoss()  # 交叉熵损失，适用于多分类问题
@@ -46,11 +46,14 @@ def train(args):
     # lr是学习率
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4) # 将模型参数导入优化器，由优化器依照梯度指导参数更新
 
+    # 学习率调度器，动态调整学习率
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epoch)
+
     #*** 训练模式 ***#
     model.train() # 指定模型为训练模式
 
     # 训练数据集路径
-    train_dataset = SimPointTrackNetDataset(args.data_dir) # 初始化自定义的数据集类
+    train_dataset = SimPointTrackNetDataset(args.data_dir, 15) # 初始化自定义的数据集类
     # 数据集加载器
     train_loader = DataLoader(dataset = train_dataset,
                               batch_size = args.batch_size,
@@ -71,7 +74,7 @@ def train(args):
             outputs = model(targets)
 
             # 计算损失
-            loss = criterion(outputs.transpose(1, 2), labels)
+            loss = criterion(outputs, labels)
 
             # 更新
             optimizer.zero_grad() # 清理旧梯度
@@ -85,6 +88,8 @@ def train(args):
                 print(f"Epoch:{epoch + 1} / {num_epoch}  Step:{i + 1} / {len(train_loader)}  Loss:{(runtime_loss_sum/5.0):.4f}")
                 loss_history.append(runtime_loss_sum/5.0)
                 runtime_loss_sum = 0.0
+
+        scheduler.step() # 每个轮结束后更新学习率
 
     # 绘图
     plt.figure(figsize=(12, 6))

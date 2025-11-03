@@ -7,8 +7,8 @@ import os
 import argparse
 import matplotlib.pyplot as plt
 
-from dataset.SimPointTrackNetDataset import SimPointTrackNetDataset
-from model.SimPointTrackNet import SimPointTrackNet
+from dataset.SimPointTrackUNetDataset import SimPointTrackNetDataset
+from model.SimPointTrackUNet import SimPointTrackUNet
 from utils import process as pc
 
 def get_args():
@@ -33,14 +33,14 @@ def test(args):
         print(f"Used CPU")
 
     # 实例化模型
-    model = SimPointTrackNet().to(device) # 并模型转移至指定设备
+    model = SimPointTrackUNet(15).to(device) # 并模型转移至指定设备
     model.load_state_dict(torch.load(os.path.join(args.log_dir, "weight.pt"), map_location=device))
 
     # *将模型调整为评估模式* #
     model.eval()
 
     # 准备测试集
-    test_dataset = SimPointTrackNetDataset(args.data_dir)
+    test_dataset = SimPointTrackNetDataset(args.data_dir, 15)
     # 数据集加载器
     test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=False)
 
@@ -57,7 +57,7 @@ def test(args):
         outputs = model.predict(targets)
 
         # 后处理
-        classes, _ = pc.scores_process(outputs) # 置信度筛查
+        classes, _ = pc.scores_process(outputs.transpose(1, 2)) # 置信度筛查
 
         # 分析数据
         accuracy, batch_total_points, batch_num_correct = pc.calculate_error_metrics(classes, labels)
@@ -66,8 +66,10 @@ def test(args):
         history_accuracy.append(accuracy)
 
         # 揪出严重失败样本
-        if accuracy < 0.6:
+        if accuracy < 0.8:
             print(f"样本 {name} 准确度: {accuracy}")
+            # print(classes)
+            # print(targets)
 
     # 绘图
     plt.figure(figsize=(12, 6))
