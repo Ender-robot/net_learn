@@ -8,12 +8,13 @@ class DoubleConv(nn.Module):
     """
         卷积-归一-激活*2
     """
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, dropout_p=0.3):
         super().__init__()
         self.double_conv = nn.Sequential(
             nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm1d(out_channels),
             nn.ReLU(inplace=True),
+            nn.Dropout(dropout_p),
             nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm1d(out_channels),
             nn.ReLU(inplace=True)
@@ -27,7 +28,7 @@ class SimPointTrackUNet(nn.Module):
     一个用于点云轨迹分割的轻量级1D U-Net。
     输入的数据必须是经过排序的、代表路径的有序点序列。
     """
-    def __init__(self, num_points=15, num_classes=3):
+    def __init__(self, num_points=15, num_classes=3, dropout_p=0.3):
         super(SimPointTrackUNet, self).__init__()
         
         self.num_points = num_points
@@ -38,24 +39,24 @@ class SimPointTrackUNet(nn.Module):
         
         # --- 编码器 ---
         # 负责提取特征并逐渐扩大感受野，理解宏观结构
-        self.down1 = DoubleConv(8, 16)
-        self.down2 = DoubleConv(16, 32)
+        self.down1 = DoubleConv(8, 16, dropout_p)
+        self.down2 = DoubleConv(16, 32, dropout_p)
         # MaxPool1d用于下采样，将序列长度减半
         self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
         
         # --- 瓶颈层 ---
         # 信息压缩最极致的地方，拥有最大的感受野
-        self.bottleneck = DoubleConv(32, 64)
+        self.bottleneck = DoubleConv(32, 64, dropout_p)
         
         # --- 解码器 ---
         # 负责将宏观特征与精细的局部特征融合，并恢复序列长度
         self.up1_upsample = nn.Upsample(scale_factor=2, mode='nearest')
         # +64 来自down2的跳跃连接
-        self.up1_conv = DoubleConv(64 + 32, 32) 
+        self.up1_conv = DoubleConv(64 + 32, 32, dropout_p) 
         
         self.up2_upsample = nn.Upsample(scale_factor=2, mode='nearest')
         # +32 来自down1的跳跃连接
-        self.up2_conv = DoubleConv(32 + 16, 16) 
+        self.up2_conv = DoubleConv(32 + 16, 16, dropout_p) 
         
         # --- 输出层 ---
         # 最后的1x1卷积，将每个点的特征向量映射到最终的类别分数上
